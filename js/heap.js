@@ -13,7 +13,8 @@ class Heap {
 
     PutUp(index) 
     {
-        while (index / 2 > 0 && this.m_data[index].compare(this.m_data[index / 2])) {
+        while (index / 2 > 0 && this.m_data[index].compare(this.m_data[index / 2])) 
+        {
             swap(this.m_data[index], this.m_data[index / 2]);
             index = index / 2;
         }
