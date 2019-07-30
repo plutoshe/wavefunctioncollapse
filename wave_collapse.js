@@ -1,14 +1,15 @@
+var Wave = require("./js/wave.js");
 var waveCollapse = function(inputfile) {
-    var wave = new Wave();
+    var wave = new Wave.Wave();
 
     // load phase
     wave.Load();
-
+    return wave.testTmp;
     // generating phase
-    if (wave.Generating()) {
-        // output phase
-        wave.Output();
-    }
+    // if (wave.Generating()) {
+    //     // output phase
+    //     wave.Output();
+    // }
 }
 
 var test = function(text) {

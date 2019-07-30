@@ -5,7 +5,15 @@ const app = express();
 const path = require("path");
 
 route.get("/test", function(req, res) {
-    res.write(wave.test("aaaaaa"));
+   // console.log();
+
+    var re = wave.waveCollapse();
+    var result="";
+    for (var i = 0; i < re.length; i++)
+    {
+        result += re[i].getAttribute("name") + " ";
+    }
+    res.write(result);
     res.end();
 	//res.sendFile(path.join(__dirname + "/test3.html"));
 });

@@ -1,3 +1,4 @@
+var DOMParser = require('xmldom').DOMParser;
 class Wave 
 {
     constructor() 
@@ -6,27 +7,15 @@ class Wave
         this.m_relations = [];
         this.m_result = [];
         this.m_size = 0;
-        this.entropies = new HEAP();
+        
+        // this.entropies = new HEAP();
     }
 
     ReadTextFile(file)
     {
-        var rawFile = new XMLHttpRequest();
-        rawFile.open("GET", file, false);
-        var allText = "1";
-        rawFile.onreadystatechange = function ()
-        {
-            if(rawFile.readyState === 4)
-            {
-                if(rawFile.status === 200 || rawFile.status == 0)
-                {
-                    allText = rawFile.responseText;
-                    //alert(allText);
-                }
-            }
-        }
-        rawFile.send(null);
-        return allText;
+        var fs = require('fs');
+        var contents = fs.readFileSync('./data/input.xml', 'utf8');
+        return contents;
     }
     // neighboor constrain structure:
     // {
@@ -46,11 +35,12 @@ class Wave
 
     Load() 
     {
-        parser = new DOMParser();
-        xmlDoc = parser.parseFromString(ReadTextFile("../data/input.xml"),"text/xml");
-        console.log(xmlDoc.getElementsByTagName("tile"));
-        // xmlDoc.getElementsByTagName("title")[0].childNodes[0].nodeValue;
-        this.status = new bool[this.dirNum][this.patternNum][this.patternNum];
+        var parser = new DOMParser();
+
+        var xmlDoc = parser.parseFromString(this.ReadTextFile("../data/input.xml"));
+        // console.log(xmlDoc.getElementsByTagName("tile")[0].getAttribute("name"));
+        this.testTmp = xmlDoc.getElementsByTagName("tile");
+        console.log(this.testTmp.length);
     }
 
     Select() 
@@ -94,3 +84,6 @@ class Wave
 // Wave.Pop = function() {
 
 // }
+
+module.exports = {}
+module.exports.Wave = Wave;
