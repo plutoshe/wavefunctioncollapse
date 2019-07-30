@@ -9,7 +9,25 @@ class Wave
         this.entropies = new HEAP();
     }
 
-
+    ReadTextFile(file)
+    {
+        var rawFile = new XMLHttpRequest();
+        rawFile.open("GET", file, false);
+        var allText = "1";
+        rawFile.onreadystatechange = function ()
+        {
+            if(rawFile.readyState === 4)
+            {
+                if(rawFile.status === 200 || rawFile.status == 0)
+                {
+                    allText = rawFile.responseText;
+                    //alert(allText);
+                }
+            }
+        }
+        rawFile.send(null);
+        return allText;
+    }
     // neighboor constrain structure:
     // {
     //    from: curentBlockID
@@ -28,6 +46,10 @@ class Wave
 
     Load() 
     {
+        parser = new DOMParser();
+        xmlDoc = parser.parseFromString(ReadTextFile("../data/input.xml"),"text/xml");
+        console.log(xmlDoc.getElementsByTagName("tile"));
+        // xmlDoc.getElementsByTagName("title")[0].childNodes[0].nodeValue;
         this.status = new bool[this.dirNum][this.patternNum][this.patternNum];
     }
 
