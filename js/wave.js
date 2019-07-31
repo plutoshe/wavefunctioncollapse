@@ -9,7 +9,8 @@ class Wave
         this.m_result = [];
         this.m_size = 0;
         this.m_slots = {};
-        
+        this.m_oppositeDirID = [2,3,0,1]
+        this.m_dir = [[0,1],[1,0],[0,-1],[-1,0]];
         // this.entropies = new HEAP();
     }
 
@@ -67,8 +68,39 @@ class Wave
                 {
                     this.m_slots[fromSlotName]["linkedSlots"][dirID].append(toSlotNames[j].getAttribute("name"));
                     if (edgeType == "undirect") 
+                    { 
+                        this.m_slots[toSlotNames[j].getAttribute("name")]["linkedSlots"][this.m_oppositeDirID[dirID]].append(fromSlotName);
+                    }
+                }
+            }
+        }
+        this.m_sizeX = xmlDoc.getAttribute("sizeX");
+        this.m_sizeY = xmlDoc.getAttribute("sizeY");
+        this.m_slots = new Array(this.m_dir.length).fill(0).map(
+            () => new Array(this.m_sizeX).fill(0).map(
+                () => new Array(this.m_sizeY).fill({
+                    influxDegree: 0,
+                    inArray: [],
+                })));
+        this.m_entrop = new Array(this.m_sizeX).fill(0).map(
+            () => new Array(this.m_sizeY).fill(0));
+        for (var i = 0; i < this.m_sizeX; i++)
+        {
+            for (var j = 0; j < this.m_sizeY; j++)
+            {
+                for (var slot in this.m_slots) {
+                    for (var dirID = 0; dirID < 3; dirID++) 
                     {
-                        this.m_slots[toSlotNames[j].getAttribute("name")]["linkedSlots"][dirID].append(fromSlotName);
+                        var x = i + this.m_dir[dirID][0];
+                        var y = j + this.m_dir[dirID][1];
+                        if (x >= 0 && y >= 0 && x < this.m_sizeX && y < this.m_sizeY)
+                        {
+                            this.m_status[dirID][x][y]["influxDegree"]++;
+                            this.m_status[dirID][x][y]["inArray"].push.apply(
+                                this.m_status[dirID][x][y]["inArray"],
+                                this.m_slots[slot]["linkedSlots"][dirID]);
+                            this.entropies[x][y] = this.m_status[dirID][x][y]["inArray"].length;
+                        }
                     }
                 }
             }
