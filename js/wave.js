@@ -1,4 +1,5 @@
 var DOMParser = require('xmldom').DOMParser;
+
 class Wave 
 {
     constructor() 
@@ -7,6 +8,7 @@ class Wave
         this.m_relations = [];
         this.m_result = [];
         this.m_size = 0;
+        this.m_slots = {};
         
         // this.entropies = new HEAP();
     }
@@ -37,10 +39,40 @@ class Wave
     {
         var parser = new DOMParser();
 
-        var xmlDoc = parser.parseFromString(this.ReadTextFile("../data/input.xml"));
+        var xmlDoc = parser.parseFromString(this.ReadTextFile("../data/input_mine.xml"));
         // console.log(xmlDoc.getElementsByTagName("tile")[0].getAttribute("name"));
-        this.testTmp = xmlDoc.getElementsByTagName("tile");
-        console.log(this.testTmp.length);
+        var slots = xmlDoc.getElementsByTagName("slots")[0].getElementsByTagName("slot");
+        for (var i = 0; i < slots.length; i++) 
+        {
+            this.m_slots[slots[i].getAttribute("name")] = 
+            {
+                "linkedSlots": [[],[],[],[]],
+            };
+        }
+        var edges = xmlDoc.getElementsByTagName("edges")[0].getElementsByTagName("edge");
+        for (var i = 0; i < edges.length; i++) 
+        {
+            var fromSlotName = this.edges[i].getAttribute("from");
+            var toSlotNames = this.edges[i].getElementsByTagName("to");
+            var dirs = [0,1,2,3];
+            var edgeType = this.edges[i].getElementsByTagName("type");
+            if (this.edges[i].getAttribute("dir") != "")
+            {
+                dirs = this.edges[i].getAttribute("dir").split(",");
+            }
+            
+            for (var dirID = 0; dirID < dirs.length; dirID++)
+            {
+                for (var j = 0; j < toSlotNames.length; j++) 
+                {
+                    this.m_slots[fromSlotName]["linkedSlots"][dirID].append(toSlotNames[j].getAttribute("name"));
+                    if (edgeType == "undirect") 
+                    {
+                        this.m_slots[toSlotNames[j].getAttribute("name")]["linkedSlots"][dirID].append(fromSlotName);
+                    }
+                }
+            }
+        }
     }
 
     Select() 

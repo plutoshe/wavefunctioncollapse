@@ -1,0 +1,16 @@
+<input_data>
+    <slots>
+        <slot name="a"/>
+        <slot name="b"/>
+        <slot name="c"/>
+    </slots>
+    <edges>
+        <edge from="a" dir="0,1,2,3" type="direct">
+            <to name="b"/>
+            <to name="c"/>
+        </edge>
+        <edge from="c" dir="0,1,2,3" type="undirect">
+            <to name="b">
+        </edge>
+    </edges>
+</input_data>
