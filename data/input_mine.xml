@@ -1,9 +1,9 @@
 <input_data>
-    <slots>
-        <slot name="a"/>
-        <slot name="b"/>
-        <slot name="c"/>
-    </slots>
+    <patterns>
+        <pattern name="a"/>
+        <pattern name="b"/>
+        <pattern name="c"/>
+    </patterns>
     <edges>
         <edge from="a" dir="0,1,2,3" type="direct">
             <to name="b"/>

@@ -8,10 +8,12 @@ class Wave
         this.m_relations = [];
         this.m_result = [];
         this.m_size = 0;
-        this.m_slots = {};
+        this.m_patternNameMapping = {};
+        this.m_patternsLinking = [];
         this.m_oppositeDirID = [2,3,0,1]
         this.m_dir = [[0,1],[1,0],[0,-1],[-1,0]];
-        this.m_deafultDirs = new Array(this.dirs.length).fill(0).map((x, index) => { return index; });
+        this.m_dirNum = this.m_dir.length;
+        this.m_deafultDirs = new Array(thism_dirNum).fill(0).map((x, index) => { return index; });
         // this.entropies = new HEAP();
     }
 
@@ -27,23 +29,19 @@ class Wave
         var parser = new DOMParser();
 
         var xmlDoc = parser.parseFromString(this.ReadTextFile(fileName))
-        // console.log(xmlDoc.getElementsByTagName("tile")[0].getAttribute("name"));
-        var slots = xmlDoc.getElementsByTagName("slots")[0].getElementsByTagName("slot");
-        var index = 0;
-        for (var i = 0; i < slots.length; i++) 
+        var patterns = xmlDoc.getElementsByTagName("patterns")[0].getElementsByTagName("pattern");
+        this.m_patternNum = patterns.length; 
+        for (var i = 0; i < patterns.length; i++) 
         {
-            this.m_slots[slots[i].getAttribute("name")] = 
-            {
-                "index": index++,
-                "linkedSlots": new Array(this.dirs.length).fill([]),
-            };
+            this.m_patternNameMapping[slots[i].getAttribute("name")] = i;
+            this.m_patternsLinking.append(new Array(this.dirs.length).fill([]));
         }
         var edges = xmlDoc.getElementsByTagName("edges")[0].getElementsByTagName("edge");
         
         for (var i = 0; i < edges.length; i++) 
         {
-            var fromSlotName = this.edges[i].getAttribute("from");
-            var toSlotNames = this.edges[i].getElementsByTagName("to");
+            var fromPatternIndex = this.m_patternNameMapping[this.edges[i].getAttribute("from")];
+            var toPatternTags = this.edges[i].getElementsByTagName("to");
             var edgeType = this.edges[i].getElementsByTagName("type");
             var dirs = this.m_deafultDirs;
             if (this.edges[i].getAttribute("dir") != "")
@@ -53,13 +51,14 @@ class Wave
             
             for (var dirID = 0; dirID < dirs.length; dirID++)
             {
-                for (var j = 0; j < toSlotNames.length; j++) 
+                for (var j = 0; j < toPatternTags.length; j++) 
                 {
-                    this.m_slots[fromSlotName]["linkedSlots"][dirID].append(toSlotNames[j].getAttribute("name"));
+                    var toPatternIndex = this.m_patternNameMapping[toSlotNames[j].getAttribute("name")];
+                    this.m_patternsLinking[fromPatternIndex][dirID].append(toPatternIndex);
                     if (edgeType == "undirect") 
                     { 
-                        this.m_slots[toSlotNames[j].getAttribute("name")]
-                            ["linkedSlots"][this.m_oppositeDirID[dirID]].append(fromSlotName);
+                        this.m_patternsLinking[toPatternIndex]
+                            [this.m_oppositeDirID[dirID]].append(fromPatternIndex);
                     }
                 }
             }
@@ -73,44 +72,46 @@ class Wave
             {
                 "entropy": 0,
                 "patternPossibility": new Array(this.dirs.length).fill(0),
-                "patternStatusNumInDir": new Array(this.dir.length).fill(new Array(this.m_slots.length).fill(0)),
+                "patternStatusNumInDir": new Array(this.dir.length).fill(new Array(this.m_patternNum).fill(0)),
                 "patternStatusInDir": new Array(this.dir.length).fill(0).map(
                     () => {
-                        return new Array(this.m_slots.length).fill(new new Array(this.m_slots.length).fill(false));
+                        return new Array(this.m_patternNum).fill(new new Array(this.m_patternNum).fill(false));
                     },
                 ),
+                "collapsed": false,
             });
         for (var i = 0; i < this.m_sizeX; i++)
         {
             for (var j = 0; j < this.m_sizeY; j++)
             {
-                for (var slot in this.m_slots) {
-                    for (var dirID = 0; dirID < this.dirs.length; dirID++) 
+                for (var patternID = 0; patternID < this.m_patternNum; patternID++) {
+                    for (var dirID = 0; dirID < this.m_dirNum; dirID++) 
                     {
                         var x = i + this.m_dir[dirID][0];
                         var y = j + this.m_dir[dirID][1];
-                        var moduleID = positionToSlotID([x, y]);
+                        var moduleID = positionToModuleID([x, y]);
                         if (x >= 0 && y >= 0 && x < this.m_sizeX && y < this.m_sizeY)
                         {
-                            for (var toSlotID = 0; toSlotID < slot.linkedSlots.length; toSlotID++) {
-                                if (!this.m_modules[moduleID]["patternStatusInDir"]
-                                    [this.m_slots[slot.linkedSlots[toSlotID]]["index"]]
-                                    [slot["index"]])
+                            for (var linkID = 0; linkID < this.m_patternsLinking[patternID][dirID].length; linkID++) {
+                                var toPatternID = this.m_patternsLinking[patternID][dirID][linkID];
+                                if (!this.m_modules[moduleID].patternStatusInDir
+                                        [dirID]
+                                        [toPatternID]
+                                        [patternID])
                                 {
                                     if (this.m_modules[moduleID].patternStatusNumInDir
-                                        [this.m_slots[slot.linkedSlots[toSlotID]]["index"]] == 0)
+                                        [dirID]
+                                        [toPatternID] == 0)
                                     {
-                                        this.m_modules[moduleID].patternPossibility++;   
+                                        this.m_modules[moduleID].patternPossibility[dirID]++;   
                                     }
                                     this.m_modules[moduleID].patternStatusNumInDir
-                                    [this.m_slots[slot.linkedSlots[toSlotID]]["index"]]++;
+                                        [dirID][toPatternID]++;
 
-                                    this.m_modules[moduleID]["patternStatusInDir"]
-                                    [this.m_slots[slot.linkedSlots[toSlotID]]["index"]]
-                                    [slot["index"]] = true;
+                                    this.m_modules[moduleID].patternStatusInDir
+                                        [dirID][toPatternID][patternID] = true;
                                 }
                             }
-                            
                         }
                     }
                 }
@@ -120,25 +121,78 @@ class Wave
 
     Select() 
     {
-        var entropyArgMin = this.entropies.GetMin();
-        this.m_slots[entropyArgMin].GeneratingPattern();
+        for (var i = 0; i < this.m_modules.length; i++)
+        {
+            if (!this.m_modules[i].collapsed && this.m_modules[i].entropy < minEntropy) 
+            {
+                minEntropy = this.m_modules[i].entropy;
+                argminEntropy = i;
+            }
+        }
+        return i;
     }
 
-    Influence() {
+    removePatternByEdge(moduleID, dirID, patternID)
+    {
+        for (var linkID = 0; linkID < this.m_patternsLinking[patternID][dirID]; linkID) 
+        {
+            if (this.m_modules[moduleID].patternStatusInDir[dirID][toPatternID][patternID])
+            {
+                this.m_modules[moduleID].patternStatusInDir[dirID][toPatternID][patternID] = false;
+                this.m_modules[moduleID].patternStatusNumInDir[dirID][toPatternID]--;
+                if (this.m_modules[moduleID].patternStatusNumInDir[dirID][toPatternID] == 0)
+                {
+                    this.m_removingStack.append([moduleID, toPatternID]);
+                    this.m_modules[moduleID].patternPossibility[dirID]--;
+                    if (this.m_modules[moduleID].patternPossibility[dirID] == 0) {
+                        this.m_exist = false;
+                    }
+                }
+            }
+        }
+    }
+
+    reduceModulePossibility(collapseID, patternID)
+    {
+        var pos = moduleIDToPosition(collapseID);
+        for (var dirID = 0; dirID < this.m_dirNum; dirID++)
+        {
+            var x = pos[0] + this.dirs[dirID][0];
+            var y = pos[1] + this.dirs[dirID][1];
+            var influencedModuleID = positionToModuleID(x, y);
+            removePatternByEdge(influencedModuleID, dirID, patternID);        
+        }
+        
+    }
+
+    Influence(collapseID) 
+    {
+        this.m_modules[i].collapsed = true;
+        var patternID = SelectModulePattern(this.m_modules[collapseID]);
+        this.m_removingStack = []
+        for (var j = 0; j < this.m_slots.length; j++) 
+        {
+            it (this.m_modules[collapseID].patternPossibility[0][j] != 0)
+            {
+                this.m_removingStack.append([collapseID, j])
+            }
+        }
+        removingIndex = 0;
+        while (removingIndex < this.m_removingStack.length) 
+        {
+            this.reduceModulePossibility(this.m_removingStack[removingIndex][0], this.m_removingStack[removingIndex][1]);
+            removingIndex++;
+        }
         
     }
 
     Generating()
     {
+        this.m_exist = true;
         for (var i = 0; i < this.m_size; i++) 
         {
-            var currentGeneratingItem = this.Pop();
-            if (currentGeneratingItem.Select()) 
-            {
-                this.m_result.push(currentGeneratingItem);
-                wave.Influence();
-            } 
-            else 
+            this.Influence(this.Select());
+            if (!this.m_exist)
             {
                 return false;
             }
@@ -146,14 +200,6 @@ class Wave
         return true;
     }
 
-    Output() 
-    {
-
-    }
-
-    Pop() {
-
-    }
 }
 
 // Wave.Pop = function() {
