@@ -3,7 +3,7 @@ var waveCollapse = function(inputfile) {
     var wave = new Wave.Wave();
 
     // load phase
-    wave.Load();
+    wave.Load("../data/input_mine.xml");
     return wave.testTmp;
     // generating phase
     // if (wave.Generating()) {
