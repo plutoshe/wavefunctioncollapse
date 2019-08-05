@@ -1,5 +1,3 @@
-var DOMParser = require('xmldom').DOMParser;
-
 class Wave 
 {
     constructor() 
@@ -13,7 +11,7 @@ class Wave
         this.m_oppositeDirID = [2,3,0,1]
         this.m_dir = [[0,1],[1,0],[0,-1],[-1,0]];
         this.m_dirNum = this.m_dir.length;
-        this.m_deafultDirs = new Array(thism_dirNum).fill(0).map((x, index) => { return index; });
+        this.m_deafultDirs = new Array(this.m_dirNum).fill(0).map((x, index) => { return index; });
         // this.entropies = new HEAP();
     }
 
@@ -23,22 +21,43 @@ class Wave
         var contents = fs.readFileSync('./data/input.xml', 'utf8');
         return contents;
     }
+    readTextFile(file)
+    {
+        var rawFile = new XMLHttpRequest();
+        rawFile.open("GET", file, false);
+        var allText = "1";
+        rawFile.onreadystatechange = function ()
+        {
+            if(rawFile.readyState === 4)
+            {
+                if(rawFile.status === 200 || rawFile.status == 0)
+                {
+                    allText = rawFile.responseText;
+                    //alert(allText);
+                }
+            }
+        }
+        rawFile.send(null);
+        return allText;
+    }
 
     Load(fileName) 
     {
-        var parser = new DOMParser();
-
-        var xmlDoc = parser.parseFromString(this.ReadTextFile(fileName))
+        //var parser = new DOMParser();
+        var dom = new DOMParser();
+        var body = this.readTextFile(fileName);
+        var xmlDoc = dom.parseFromString(body, "application/xml").getElementById("main");
         var patterns = xmlDoc.getElementsByTagName("patterns")[0].getElementsByTagName("pattern");
         this.m_patternNum = patterns.length; 
+        
         for (var i = 0; i < patterns.length; i++) 
         {
-            this.m_patternNameMapping[slots[i].getAttribute("name")] = i;
-            this.m_patternsLinking.append(new Array(this.dirs.length).fill([]));
+            this.m_patternNameMapping[patterns[i].getAttribute("name")] = i;
+            this.m_patternsLinking.push(new Array(this.m_dirNum).fill([]));
         }
-        var edges = xmlDoc.getElementsByTagName("edges")[0].getElementsByTagName("edge");
+        this.edges = xmlDoc.getElementsByTagName("edges")[0].getElementsByTagName("edge");
         
-        for (var i = 0; i < edges.length; i++) 
+        for (var i = 0; i < this.edges.length; i++) 
         {
             var fromPatternIndex = this.m_patternNameMapping[this.edges[i].getAttribute("from")];
             var toPatternTags = this.edges[i].getElementsByTagName("to");
@@ -53,75 +72,110 @@ class Wave
             {
                 for (var j = 0; j < toPatternTags.length; j++) 
                 {
-                    var toPatternIndex = this.m_patternNameMapping[toSlotNames[j].getAttribute("name")];
-                    this.m_patternsLinking[fromPatternIndex][dirID].append(toPatternIndex);
+                    var toPatternIndex = this.m_patternNameMapping[toPatternTags[j].getAttribute("name")];
+                    this.m_patternsLinking[fromPatternIndex][dirID].push(toPatternIndex);
                     if (edgeType == "undirect") 
                     { 
                         this.m_patternsLinking[toPatternIndex]
-                            [this.m_oppositeDirID[dirID]].append(fromPatternIndex);
+                            [this.m_oppositeDirID[dirID]].push(fromPatternIndex);
                     }
                 }
             }
         }
-        // currentyly, only use 2d as main slot size
-        // TODO: add 1 more dimension
+        
         this.m_sizeX = xmlDoc.getAttribute("sizeX");
         this.m_sizeY = xmlDoc.getAttribute("sizeY");
-        this.m_sizeSlot = this.m_sizeX * this.m_sizeY;
-        this.m_modules = new Array(this.m_sizeSlot).fill(
+        this.m_sizeModule = this.m_sizeX * this.m_sizeY;
+        this.GraphInitialization();
+    }
+
+    moduleIDToPosition(moduleID) 
+    {
+        return [Math.floor(moduleID / this.m_sizeY), moduleID % this.m_sizeY];
+    }
+
+    positionToModuleID(pos)
+    {
+        return pos[0] * this.m_sizeY + pos[1];
+    }
+
+    GraphInitialization() 
+    {
+        // currentyly, only use 2d as main slot size
+        // TODO: add 1 more dimension
+        this.m_modules = new Array(this.m_sizeModule).fill(
             {
                 "entropy": 0,
-                "patternPossibility": new Array(this.dirs.length).fill(0),
-                "patternStatusNumInDir": new Array(this.dir.length).fill(new Array(this.m_patternNum).fill(0)),
-                "patternStatusInDir": new Array(this.dir.length).fill(0).map(
+                "patternPossibility": 0,
+                "result": -1,
+                "patternStatusNumInDir": new Array(this.m_dirNum).fill(new Array(this.m_patternNum).fill(0)),
+                "patternStatusInDir": new Array(this.m_dirNum).fill(0).map(
                     () => {
-                        return new Array(this.m_patternNum).fill(new new Array(this.m_patternNum).fill(false));
+                        return new Array(this.m_patternNum).fill(new Array(this.m_patternNum).fill(false));
                     },
                 ),
                 "collapsed": false,
             });
-        for (var i = 0; i < this.m_sizeX; i++)
+        for (var i = 0; i < this.m_sizeModule; i++)
         {
-            for (var j = 0; j < this.m_sizeY; j++)
-            {
-                for (var patternID = 0; patternID < this.m_patternNum; patternID++) {
-                    for (var dirID = 0; dirID < this.m_dirNum; dirID++) 
+            var pos = this.moduleIDToPosition(i);
+            for (var patternID = 0; patternID < this.m_patternNum; patternID++) {
+                for (var dirID = 0; dirID < this.m_dirNum; dirID++) 
+                {
+                    var x = pos[0] + this.m_dir[dirID][0];
+                    var y = pos[1] + this.m_dir[dirID][1];
+                    var moduleID = this.positionToModuleID([x, y]);
+                    if (x >= 0 && y >= 0 && x < this.m_sizeX && y < this.m_sizeY)
                     {
-                        var x = i + this.m_dir[dirID][0];
-                        var y = j + this.m_dir[dirID][1];
-                        var moduleID = positionToModuleID([x, y]);
-                        if (x >= 0 && y >= 0 && x < this.m_sizeX && y < this.m_sizeY)
-                        {
-                            for (var linkID = 0; linkID < this.m_patternsLinking[patternID][dirID].length; linkID++) {
-                                var toPatternID = this.m_patternsLinking[patternID][dirID][linkID];
-                                if (!this.m_modules[moduleID].patternStatusInDir
-                                        [dirID]
-                                        [toPatternID]
-                                        [patternID])
-                                {
-                                    if (this.m_modules[moduleID].patternStatusNumInDir
-                                        [dirID]
-                                        [toPatternID] == 0)
-                                    {
-                                        this.m_modules[moduleID].patternPossibility[dirID]++;   
-                                    }
-                                    this.m_modules[moduleID].patternStatusNumInDir
-                                        [dirID][toPatternID]++;
+                        for (var linkID = 0; linkID < this.m_patternsLinking[patternID][dirID].length; linkID++) {
+                            
+                            var toPatternID = this.m_patternsLinking[patternID][dirID][linkID];
+                            if (!this.m_modules[moduleID]["patternStatusInDir"]
+                                    [dirID][toPatternID][patternID])
+                            {
+                                this.m_modules[moduleID].patternStatusNumInDir
+                                    [dirID][toPatternID]++;
 
-                                    this.m_modules[moduleID].patternStatusInDir
-                                        [dirID][toPatternID][patternID] = true;
-                                }
+                                this.m_modules[moduleID].patternStatusInDir
+                                    [dirID][toPatternID][patternID] = true;
                             }
                         }
                     }
                 }
             }
         }
+        for (var moduleID = 0; moduleID < this.m_sizeModule; moduleID++)
+        {
+            for (var patternID = 0; patternID < this.m_patternNum; patternID++)
+            {
+                var patternPermission = true;
+                for (var dirID = 0; dirID < this.m_dirNum; dirID++)
+                {
+                    if (this.m_modules[moduleID].patternStatusNumInDir[dirID][patternID] == 0)
+                    {
+                        patternPermission = false;
+                        break;
+                    }
+                }
+                if (patternPermission)
+                {
+                    this.m_modules[moduleID].patternPossibility++;
+                }
+                else
+                {
+                    for (var dirID = 0; dirID < this.m_dirNum; dirID++)
+                    {
+                        this.m_modules[moduleID].patternStatusNumInDir[dirID][patternID] = 0;
+                    }
+                }
+            }
+            this.m_modules[moduleID].entropy = this.m_modules[moduleID].patternPossibility;
+        }
     }
 
     Select() 
     {
-        for (var i = 0; i < this.m_modules.length; i++)
+        for (var i = 0; i < m_sizeModule; i++)
         {
             if (!this.m_modules[i].collapsed && this.m_modules[i].entropy < minEntropy) 
             {
@@ -129,7 +183,7 @@ class Wave
                 argminEntropy = i;
             }
         }
-        return i;
+        return argminEntropy;
     }
 
     removePatternByEdge(moduleID, dirID, patternID)
@@ -142,11 +196,7 @@ class Wave
                 this.m_modules[moduleID].patternStatusNumInDir[dirID][toPatternID]--;
                 if (this.m_modules[moduleID].patternStatusNumInDir[dirID][toPatternID] == 0)
                 {
-                    this.m_removingStack.append([moduleID, toPatternID]);
-                    this.m_modules[moduleID].patternPossibility[dirID]--;
-                    if (this.m_modules[moduleID].patternPossibility[dirID] == 0) {
-                        this.m_exist = false;
-                    }
+                    this.m_removingStack.push([moduleID, toPatternID]);
                 }
             }
         }
@@ -155,6 +205,16 @@ class Wave
     reduceModulePossibility(collapseID, patternID)
     {
         var pos = moduleIDToPosition(collapseID);
+        this.m_modules[collapseID].patternPossibility--;
+        this.m_modules[collapseID].entropy--;
+        for (var dirID = 0; dirID < this.m_dirNum; dirID++)
+        {
+            var x = pos[0] + this.dirs[dirID][0];
+            var y = pos[1] + this.dirs[dirID][1];   
+            this.m_modules[collapseID].patternStatusNumInDir[dirID][patternID] = 0;
+
+        }
+
         for (var dirID = 0; dirID < this.m_dirNum; dirID++)
         {
             var x = pos[0] + this.dirs[dirID][0];
@@ -162,25 +222,39 @@ class Wave
             var influencedModuleID = positionToModuleID(x, y);
             removePatternByEdge(influencedModuleID, dirID, patternID);        
         }
-        
+    }
+
+    SelectModulePattern(collapseID)
+    {
+        // TODO: random pick based on possibility
+        for (var patternID = 0; patternID < this.m_patternNum; patternID++)
+        {
+            if (this.m_modules[collapseID].patternStatusInDir[0][patternID] != 0)
+            {
+                return patternID;
+            }
+        }
     }
 
     Influence(collapseID) 
     {
         this.m_modules[i].collapsed = true;
-        var patternID = SelectModulePattern(this.m_modules[collapseID]);
+        var patternID = this.SelectModulePattern(collapseID);
+        this.m_modules[i].result = patternID;
         this.m_removingStack = []
-        for (var j = 0; j < this.m_slots.length; j++) 
+        for (var j = 0; j < this.m_patternNum; j++) 
         {
-            it (this.m_modules[collapseID].patternPossibility[0][j] != 0)
+            it (this.m_modules[collapseID].patternPossibility[0][j] != 0 && j != patternID)
             {
-                this.m_removingStack.append([collapseID, j])
+                this.m_removingStack.push([collapseID, j])
             }
         }
         removingIndex = 0;
         while (removingIndex < this.m_removingStack.length) 
         {
-            this.reduceModulePossibility(this.m_removingStack[removingIndex][0], this.m_removingStack[removingIndex][1]);
+            this.reduceModulePossibility(
+                this.m_removingStack[removingIndex][0], 
+                this.m_removingStack[removingIndex][1]);
             removingIndex++;
         }
         
@@ -200,11 +274,26 @@ class Wave
         return true;
     }
 
+    OutputToImage() 
+    {
+        var result = "";
+        for (var i = 0; i < this.m_sizeModule; i++)
+        {
+            result += this.m_modules[i].result;
+            if ((i + 1) % this.m_sizeX == 0)
+            {
+                result += "\n";
+            } 
+            else
+            {
+                result += ", ";
+            }
+        }
+        console.log(result);
+        return result;
+    }
 }
 
 // Wave.Pop = function() {
 
 // }
-
-module.exports = {}
-module.exports.Wave = Wave;
