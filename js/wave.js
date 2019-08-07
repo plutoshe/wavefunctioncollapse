@@ -12,6 +12,7 @@ class Wave
         this.m_dir = [[0,1],[1,0],[0,-1],[-1,0]];
         this.m_dirNum = this.m_dir.length;
         this.m_deafultDirs = new Array(this.m_dirNum).fill(0).map((x, index) => { return index; });
+        this.m_modules = []
         // this.entropies = new HEAP();
     }
 
@@ -53,7 +54,8 @@ class Wave
         for (var i = 0; i < patterns.length; i++) 
         {
             this.m_patternNameMapping[patterns[i].getAttribute("name")] = i;
-            this.m_patternsLinking.push(new Array(this.m_dirNum).fill([]));
+            this.m_patternsLinking.push(new Array(this.m_dirNum).fill(0).map(
+                ()=>{return []}));
         }
         this.edges = xmlDoc.getElementsByTagName("edges")[0].getElementsByTagName("edge");
         
@@ -61,7 +63,7 @@ class Wave
         {
             var fromPatternIndex = this.m_patternNameMapping[this.edges[i].getAttribute("from")];
             var toPatternTags = this.edges[i].getElementsByTagName("to");
-            var edgeType = this.edges[i].getElementsByTagName("type");
+            var edgeType = this.edges[i].getAttribute("type");
             var dirs = this.m_deafultDirs;
             if (this.edges[i].getAttribute("dir") != "")
             {
@@ -73,16 +75,15 @@ class Wave
                 for (var j = 0; j < toPatternTags.length; j++) 
                 {
                     var toPatternIndex = this.m_patternNameMapping[toPatternTags[j].getAttribute("name")];
-                    this.m_patternsLinking[fromPatternIndex][dirID].push(toPatternIndex);
+                    this.m_patternsLinking[fromPatternIndex][parseInt(dirs[dirID])].push(toPatternIndex);
                     if (edgeType == "undirect") 
                     { 
                         this.m_patternsLinking[toPatternIndex]
-                            [this.m_oppositeDirID[dirID]].push(fromPatternIndex);
+                            [this.m_oppositeDirID[parseInt(dirs[dirID])]].push(fromPatternIndex);
                     }
                 }
             }
         }
-        
         this.m_sizeX = xmlDoc.getAttribute("sizeX");
         this.m_sizeY = xmlDoc.getAttribute("sizeY");
         this.m_sizeModule = this.m_sizeX * this.m_sizeY;
@@ -101,6 +102,7 @@ class Wave
 
     GraphInitialization() 
     {
+        console.log("!!!!!!!!");
         // currentyly, only use 2d as main slot size
         // TODO: add 1 more dimension
         this.m_modules = new Array(this.m_sizeModule).fill(
@@ -108,14 +110,14 @@ class Wave
                 "entropy": 0,
                 "patternPossibility": 0,
                 "result": -1,
-                "patternStatusNumInDir": new Array(this.m_dirNum).fill(new Array(this.m_patternNum).fill(0)),
+                "patternStatusNumInDir": new Array(this.m_dirNum).fill(0).map(
+                    () => { return new Array(this.m_patternNum).fill(0)}),
                 "patternStatusInDir": new Array(this.m_dirNum).fill(0).map(
-                    () => {
-                        return new Array(this.m_patternNum).fill(new Array(this.m_patternNum).fill(false));
-                    },
-                ),
+                    () => {return new Array(this.m_patternNum).fill(0).map(
+                        () => { return new Array(this.m_patternNum).fill(false);});}),
                 "collapsed": false,
             });
+       
         for (var i = 0; i < this.m_sizeModule; i++)
         {
             var pos = this.moduleIDToPosition(i);
@@ -130,9 +132,10 @@ class Wave
                         for (var linkID = 0; linkID < this.m_patternsLinking[patternID][dirID].length; linkID++) {
                             
                             var toPatternID = this.m_patternsLinking[patternID][dirID][linkID];
-                            if (!this.m_modules[moduleID]["patternStatusInDir"]
+                            
+                            if (!this.m_modules[moduleID].patternStatusInDir
                                     [dirID][toPatternID][patternID])
-                            {
+                            {   
                                 this.m_modules[moduleID].patternStatusNumInDir
                                     [dirID][toPatternID]++;
 
@@ -143,7 +146,8 @@ class Wave
                     }
                 }
             }
-        }
+        } 
+        console.log(this.m_modules);
         for (var moduleID = 0; moduleID < this.m_sizeModule; moduleID++)
         {
             for (var patternID = 0; patternID < this.m_patternNum; patternID++)
@@ -171,6 +175,7 @@ class Wave
             }
             this.m_modules[moduleID].entropy = this.m_modules[moduleID].patternPossibility;
         }
+        console.log(this.m_modules);
     }
 
     Select() 

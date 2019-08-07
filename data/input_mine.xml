@@ -1,13 +1,16 @@
-<input_data id="main" sizeX="10" sizeY="10">
+<input_data id="main" sizeX="2" sizeY="2">
     <patterns>
         <pattern name="a"/>
         <pattern name="b"/>
         <pattern name="c"/>
     </patterns>
     <edges>
-        <edge from="a" dir="0,1,2,3" type="direct">
+        <!-- <edge from="a" dir="0,1,2,3" type="direct">
             <to name="b"/>
             <to name="c"/>
+        </edge> -->
+        <edge from="a" dir="0" type="direct">
+            <to name="b"/>
         </edge>
         <edge from="c" dir="0,1,2,3" type="undirect">
             <to name="b"/>
