@@ -100,13 +100,17 @@ class Wave
         return pos[0] * this.m_sizeY + pos[1];
     }
 
+    InScope(pos)
+    {
+        return pos[0] >= 0 && pos[1] >= 0 && pos[0] < this.m_sizeX && pos[1] < this.m_sizeY;
+    }
+
     GraphInitialization() 
     {
-        console.log("!!!!!!!!");
         // currentyly, only use 2d as main slot size
         // TODO: add 1 more dimension
-        this.m_modules = new Array(this.m_sizeModule).fill(
-            {
+        this.m_modules = new Array(this.m_sizeModule).fill(0).map(
+            () => { return {
                 "entropy": 0,
                 "patternPossibility": 0,
                 "result": -1,
@@ -116,7 +120,7 @@ class Wave
                     () => {return new Array(this.m_patternNum).fill(0).map(
                         () => { return new Array(this.m_patternNum).fill(false);});}),
                 "collapsed": false,
-            });
+            }});
        
         for (var i = 0; i < this.m_sizeModule; i++)
         {
@@ -126,36 +130,39 @@ class Wave
                 {
                     var x = pos[0] + this.m_dir[dirID][0];
                     var y = pos[1] + this.m_dir[dirID][1];
+                    var oppositeDirID = this.m_oppositeDirID[dirID];
                     var moduleID = this.positionToModuleID([x, y]);
-                    if (x >= 0 && y >= 0 && x < this.m_sizeX && y < this.m_sizeY)
+                    if (this.InScope([x, y]))
                     {
                         for (var linkID = 0; linkID < this.m_patternsLinking[patternID][dirID].length; linkID++) {
                             
                             var toPatternID = this.m_patternsLinking[patternID][dirID][linkID];
                             
                             if (!this.m_modules[moduleID].patternStatusInDir
-                                    [dirID][toPatternID][patternID])
+                                    [oppositeDirID][toPatternID][patternID])
                             {   
                                 this.m_modules[moduleID].patternStatusNumInDir
-                                    [dirID][toPatternID]++;
+                                    [oppositeDirID][toPatternID]++;
 
                                 this.m_modules[moduleID].patternStatusInDir
-                                    [dirID][toPatternID][patternID] = true;
+                                    [oppositeDirID][toPatternID][patternID] = true;
                             }
                         }
                     }
                 }
             }
         } 
-        console.log(this.m_modules);
         for (var moduleID = 0; moduleID < this.m_sizeModule; moduleID++)
         {
+            var pos = this.moduleIDToPosition(moduleID);
             for (var patternID = 0; patternID < this.m_patternNum; patternID++)
             {
                 var patternPermission = true;
                 for (var dirID = 0; dirID < this.m_dirNum; dirID++)
                 {
-                    if (this.m_modules[moduleID].patternStatusNumInDir[dirID][patternID] == 0)
+                    var x = pos[0] + this.m_dir[dirID][0];
+                    var y = pos[1] + this.m_dir[dirID][1];
+                    if (this.InScope([x, y]) && this.m_modules[moduleID].patternStatusNumInDir[dirID][patternID] == 0)
                     {
                         patternPermission = false;
                         break;
@@ -163,6 +170,7 @@ class Wave
                 }
                 if (patternPermission)
                 {
+                    console.log(moduleID);
                     this.m_modules[moduleID].patternPossibility++;
                 }
                 else
@@ -180,9 +188,11 @@ class Wave
 
     Select() 
     {
-        for (var i = 0; i < m_sizeModule; i++)
+        var minEntropy = 0; 
+        var argminEntropy = -1;
+        for (var i = 0; i < this.m_sizeModule; i++)
         {
-            if (!this.m_modules[i].collapsed && this.m_modules[i].entropy < minEntropy) 
+            if (argminEntropy == -1 || !this.m_modules[i].collapsed && this.m_modules[i].entropy < minEntropy) 
             {
                 minEntropy = this.m_modules[i].entropy;
                 argminEntropy = i;
@@ -243,17 +253,19 @@ class Wave
 
     Influence(collapseID) 
     {
-        this.m_modules[i].collapsed = true;
+        this.m_modules[collapseID].collapsed = true;
         var patternID = this.SelectModulePattern(collapseID);
-        this.m_modules[i].result = patternID;
+        this.m_modules[collapseID].result = patternID;
         this.m_removingStack = []
         for (var j = 0; j < this.m_patternNum; j++) 
         {
+            console.log(this.m_modules[collapseID]);
             it (this.m_modules[collapseID].patternPossibility[0][j] != 0 && j != patternID)
             {
                 this.m_removingStack.push([collapseID, j])
             }
         }
+        console.log(m_removingStack);
         removingIndex = 0;
         while (removingIndex < this.m_removingStack.length) 
         {
@@ -267,8 +279,9 @@ class Wave
 
     Generating()
     {
+        console.log(this.m_sizeModule);
         this.m_exist = true;
-        for (var i = 0; i < this.m_size; i++) 
+        for (var i = 0; i < this.m_sizeModule; i++) 
         {
             this.Influence(this.Select());
             if (!this.m_exist)
