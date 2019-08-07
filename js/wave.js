@@ -114,6 +114,7 @@ class Wave
                 "entropy": 0,
                 "patternPossibility": 0,
                 "result": -1,
+                "patternStatus": new Array(this.m_patternNum).fill(false),
                 "patternStatusNumInDir": new Array(this.m_dirNum).fill(0).map(
                     () => { return new Array(this.m_patternNum).fill(0)}),
                 "patternStatusInDir": new Array(this.m_dirNum).fill(0).map(
@@ -170,7 +171,7 @@ class Wave
                 }
                 if (patternPermission)
                 {
-                    console.log(moduleID);
+                    this.m_modules[moduleID].patternStatus[patternID] = true;
                     this.m_modules[moduleID].patternPossibility++;
                 }
                 else
@@ -183,7 +184,6 @@ class Wave
             }
             this.m_modules[moduleID].entropy = this.m_modules[moduleID].patternPossibility;
         }
-        console.log(this.m_modules);
     }
 
     Select() 
@@ -192,7 +192,7 @@ class Wave
         var argminEntropy = -1;
         for (var i = 0; i < this.m_sizeModule; i++)
         {
-            if (argminEntropy == -1 || !this.m_modules[i].collapsed && this.m_modules[i].entropy < minEntropy) 
+            if (!this.m_modules[i].collapsed && (argminEntropy == -1 ||this.m_modules[i].entropy < minEntropy)) 
             {
                 minEntropy = this.m_modules[i].entropy;
                 argminEntropy = i;
@@ -203,14 +203,18 @@ class Wave
 
     removePatternByEdge(moduleID, dirID, patternID)
     {
-        for (var linkID = 0; linkID < this.m_patternsLinking[patternID][dirID]; linkID) 
+        var oppositeDirID = this.m_oppositeDirID[dirID];
+        for (var linkID = 0; linkID < this.m_patternsLinking[patternID][dirID].length; linkID++) 
         {
-            if (this.m_modules[moduleID].patternStatusInDir[dirID][toPatternID][patternID])
+            var toPatternID = this.m_patternsLinking[patternID][dirID][linkID]; 
+            if (this.m_modules[moduleID].patternStatusInDir[oppositeDirID][toPatternID][patternID])
             {
-                this.m_modules[moduleID].patternStatusInDir[dirID][toPatternID][patternID] = false;
-                this.m_modules[moduleID].patternStatusNumInDir[dirID][toPatternID]--;
-                if (this.m_modules[moduleID].patternStatusNumInDir[dirID][toPatternID] == 0)
+                this.m_modules[moduleID].patternStatusInDir[oppositeDirID][toPatternID][patternID] = false;
+                this.m_modules[moduleID].patternStatusNumInDir[oppositeDirID][toPatternID]--;
+                if (this.m_modules[moduleID].patternStatus[toPatternID] && 
+                    this.m_modules[moduleID].patternStatusNumInDir[oppositeDirID][toPatternID] == 0)
                 {
+                    this.m_modules[moduleID].patternStatus[toPatternID] = false;
                     this.m_removingStack.push([moduleID, toPatternID]);
                 }
             }
@@ -219,23 +223,27 @@ class Wave
 
     reduceModulePossibility(collapseID, patternID)
     {
-        var pos = moduleIDToPosition(collapseID);
+        var pos = this.moduleIDToPosition(collapseID);
         this.m_modules[collapseID].patternPossibility--;
         this.m_modules[collapseID].entropy--;
+        this.m_modules[collapseID].patternStatus[patternID] = false;
         for (var dirID = 0; dirID < this.m_dirNum; dirID++)
-        {
-            var x = pos[0] + this.dirs[dirID][0];
-            var y = pos[1] + this.dirs[dirID][1];   
+        {    
             this.m_modules[collapseID].patternStatusNumInDir[dirID][patternID] = 0;
-
         }
 
         for (var dirID = 0; dirID < this.m_dirNum; dirID++)
         {
-            var x = pos[0] + this.dirs[dirID][0];
-            var y = pos[1] + this.dirs[dirID][1];
-            var influencedModuleID = positionToModuleID(x, y);
-            removePatternByEdge(influencedModuleID, dirID, patternID);        
+            var x = pos[0] + this.m_dir[dirID][0];
+            var y = pos[1] + this.m_dir[dirID][1];
+            if (this.InScope([x, y]))
+            {
+                var influencedModuleID = this.positionToModuleID([x, y]);
+                if (!this.m_modules[influencedModuleID].collapseID)
+                {
+                    this.removePatternByEdge(influencedModuleID, dirID, patternID);        
+                }
+            }
         }
     }
 
@@ -244,7 +252,7 @@ class Wave
         // TODO: random pick based on possibility
         for (var patternID = 0; patternID < this.m_patternNum; patternID++)
         {
-            if (this.m_modules[collapseID].patternStatusInDir[0][patternID] != 0)
+            if (this.m_modules[collapseID].patternStatus[patternID])
             {
                 return patternID;
             }
@@ -259,14 +267,13 @@ class Wave
         this.m_removingStack = []
         for (var j = 0; j < this.m_patternNum; j++) 
         {
-            console.log(this.m_modules[collapseID]);
-            it (this.m_modules[collapseID].patternPossibility[0][j] != 0 && j != patternID)
+            if (this.m_modules[collapseID].patternStatus[j] && j != patternID)
             {
+                this.m_modules[collapseID].patternStatus[j] = false;
                 this.m_removingStack.push([collapseID, j])
             }
         }
-        console.log(m_removingStack);
-        removingIndex = 0;
+        var removingIndex = 0;
         while (removingIndex < this.m_removingStack.length) 
         {
             this.reduceModulePossibility(
@@ -279,7 +286,6 @@ class Wave
 
     Generating()
     {
-        console.log(this.m_sizeModule);
         this.m_exist = true;
         for (var i = 0; i < this.m_sizeModule; i++) 
         {
